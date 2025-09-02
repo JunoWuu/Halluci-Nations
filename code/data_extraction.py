@@ -38,7 +38,129 @@ def bin_spikes(spike_times, end_time, bin_size):
     # Get bin centers
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
 
-    return binned_spikes, spike_rates, bin_centers
+    return binned_spikes, spike_rates, bin_centers,bin_edges
+def bin_spike_trials(trial_info):
+    try:
+        trial_number, file_path, save_path, time_res = trial_info
+        with open(file_path, 'rb') as f:
+            spike_times = pickle.load(f)
+            
+        end_time = spike_times[-1]
+        spike_times_data = spike_times[:-1]
+        
+        spike_rates_list = []
+        spike_rate_bins = []
+        
+        # Initialize variables to avoid NameError if the loop is empty
+        ts_temp = None
+        bin_edges = None
+
+        for spike_data in spike_times_data:
+            # CORRECTED: Renamed the local variable to avoid name collision.
+            # The variable receiving the result is now 'binned_spikes'.
+            binned_spikes, spike_rates, ts_temp, bin_edges = bin_spikes(spike_data, end_time, time_res)
+            
+            spike_rates_list.append(spike_rates)
+            # Use the new variable name here as well.
+            spike_rate_bins.append(binned_spikes)
+
+        # This part will execute even if the loop was empty
+        if ts_temp is not None and bin_edges is not None:
+            spike_rates_list.append(ts_temp)
+            spike_rates_list.append(bin_edges)
+            
+            # CORRECTED TYPO: 'spike_rates_bins' -> 'spike_rate_bins'
+            spike_rate_bins.append(ts_temp)
+            spike_rate_bins.append(bin_edges)
+        
+        # CORRECTED TYPO and LOGIC: 
+        # 'spike_rates_bins' -> 'spike_rate_bins'
+        # 'spike_rates' -> 'spike_rates_list' to save all rates, not just the last one.
+        data_dic = {'bin_counts': spike_rate_bins, 'spike_rates': spike_rates_list}
+        
+        filename = os.path.join(save_path, f'trial_array_{trial_number}.pkl')
+        with open(filename, 'wb') as f:
+            pickle.dump(data_dic, f)
+            
+        return f"Successfully processed trial {trial_number}"
+    except Exception as e:
+        return f"Error processing {os.path.basename(file_path)}: {e}"
+
+def parallel_bin_spikes(stim_ep_path, save_path, time_res, num_processes=None):
+    """
+    Orchestrates the parallel processing of spike data trials.
+
+    It finds all trial files in the source directory, sets up a multiprocessing
+    pool, and maps the bin_spike_trials function across all files.
+
+    Args:
+        stim_ep_path (str): The path to the directory containing raw trial data (.pkl files).
+        save_path (str): The path to the directory where binned data (.npz files) will be saved.
+        time_res (float): The time resolution for binning spikes.
+        num_processes (int, optional): The number of CPU cores to use. 
+                                       Defaults to the total number of cores available.
+    """
+    # Create the save directory if it doesn't exist
+    os.makedirs(save_path, exist_ok=True)
+
+    # Find all relevant .pkl files in the source directory
+    try:
+        trial_files = sorted([f for f in os.listdir(stim_ep_path) if f.startswith('trial_array_') and f.endswith('.pkl')])
+        if not trial_files:
+            print(f"Warning: No trial files found in {stim_ep_path}")
+            return
+    except FileNotFoundError:
+        print(f"Error: The directory {stim_ep_path} was not found.")
+        return
+
+    # Prepare the list of arguments for each call to bin_spike_trials
+    trial_info_list = []
+    for file_name in trial_files:
+        # Extract trial number from filename like 'trial_array_123.pkl'
+        try:
+            trial_number = int(file_name.split('_')[-1].split('.')[0])
+            file_path = os.path.join(stim_ep_path, file_name)
+            trial_info_list.append((trial_number, file_path, save_path, time_res))
+        except (IndexError, ValueError):
+            print(f"Skipping malformed filename: {file_name}")
+            continue
+
+    # Determine the number of processes to use
+    if num_processes is None:
+        num_processes = cpu_count()
+    
+    print(f"Starting parallel processing with {num_processes} cores...")
+
+    # Use a multiprocessing Pool to process files in parallel
+    with Pool(processes=num_processes) as pool:
+        # Use tqdm for a progress bar
+        results = list(tqdm(pool.imap_unordered(bin_spike_trials, trial_info_list),
+                            total=len(trial_info_list),leave=True,position=0))
+
+    # Optional: Print any error or warning messages returned from the processes
+    print("\n--- Processing Log ---")
+    error_count = 0
+    success_count = 0
+    
+    for result in results:
+        # --- ROBUSTNESS FIX IS HERE ---
+        # First, check if the result is actually a string
+        if isinstance(result, str):
+            if "Error" in result or "Skipping" in result:
+                print(result)
+                error_count += 1
+            else:
+                success_count += 1
+        else:
+            # If we get here, a process returned None or something else
+            print(f"Warning: A worker process returned a non-string value: {result}")
+            error_count += 1
+    
+    if error_count == 0:
+        print("All files processed successfully.")
+    else:
+        print(f"Completed with {error_count} errors/warnings.")
+    print("----------------------")
 
 #ignore start time # use swecp
 def update_stim_eps_end_time(df_visualstim_path,stim_ep):
@@ -130,7 +252,7 @@ def extract_spikes_times_parallel_optimized(df_data,df_interest, stim_ep, main_p
             print(error)
     print(f"Processing for {stim_ep} complete. Files saved in {stim_ep_path}")
     return
-
+'''
 def bin_spike_trials(trial_info):
     try:
         trial_number, file_path, save_path, time_res = trial_info
@@ -227,3 +349,4 @@ def parallel_bin_spikes(stim_ep_path, save_path, time_res, num_processes=None):
     else:
         print(f"Completed with {error_count} errors/warnings.")
     print("----------------------")
+'''

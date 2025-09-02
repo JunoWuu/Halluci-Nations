@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd 
+import pickle
 from sklearn.preprocessing import StandardScaler
 
 
@@ -10,12 +11,18 @@ def spike_rate_zscore(data):
     z_scored_data = z_scored_data_T.T
     return z_scored_data
 
-def get_spikerate_data(path):
-    data = np.load(path)['arr_0']
-    ts = data[-1,:]
-    data = data[:-1,:]
-    zscored_data = spike_rate_zscore(data)
-    return {'timestamp':ts,'raw_fr':data,'zscored_fr':zscored_data}
+def get_spikerate_data(filename):
+    with open(filename, 'rb') as f: # 'rb' for read binary
+        loaded_data = pickle.load(f)
+    bin_counts = loaded_data['bin_counts']
+    bin_centers = bin_counts[-2]
+    bin_edges  = bin_counts[-1]
+    bin_counts = np.array(bin_counts[:-2])
+    data_dic ={'s_counts':bin_counts,
+              'bin_centers':bin_centers,
+              'bin_edges':bin_edges}
+    return data_dic
+
 
 def calculate_trial_averages(data_collection):
     """
@@ -53,15 +60,15 @@ def calculate_trial_averages(data_collection):
 
 def trim_binsz_ts(data_set):
     corrected_data_set = {}
-    min_timestamp_len = min([d['timestamp'].shape[0] for d in data_set.values()])
+    min_timestamp_len = min([d['bin_centers'].shape[0] for d in data_set.values()])
     for key, inner_dict in data_set.items():
         corrected_data_set[key] = {
             # Slice the 1D timestamp array
-            'timestamp': inner_dict['timestamp'][:min_timestamp_len],
+            'bin_centers': inner_dict['bin_centers'][:min_timestamp_len],
 
             # Slice the 2D firing rate arrays on their second dimension
-            'raw_fr': inner_dict['raw_fr'][:, :min_timestamp_len],
-            'zscored_fr': inner_dict['zscored_fr'][:, :min_timestamp_len]
+            's_counts': inner_dict['s_counts'][:, :min_timestamp_len],
+            'bin_edges': inner_dict['bin_edges'][:min_timestamp_len+1]
         }
     return corrected_data_set
 
