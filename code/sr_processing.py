@@ -93,6 +93,10 @@ def get_index_maps(df_trials):
     index_map = {name: group.index.tolist() for name, group in grouped}
     return index_map
 
+def psth_cal(trial_arrays):
+    stacked_trial_rates = np.stack(trial_arrays, axis=0)
+    per_neuron_psth = np.mean(stacked_trial_rates, axis=0)
+    return per_neuron_psth
 
 def subset_and_organize_matrices(regions, layers, matrix, target_region):
     """

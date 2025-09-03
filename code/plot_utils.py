@@ -33,8 +33,6 @@ def plot_3Dcells(x_coords,y_coords,z_coords,cell_labels):
     ax.grid(True)
     return
 
-
-
 def raster_bny_cell_type(spike_times, cell_types):
     unique_labels = np.unique(cell_labels)
     cmap = plt.cm.get_cmap('tab10', len(unique_labels)) # A colormap good for distinct categories
@@ -92,7 +90,8 @@ def plot_raster(spike_times,title,lsize = 5):
 
 
 
-def generate_matrices_comparison(matrices,layer_info,unique_layers,epochs):
+def generate_matrices_comparison(matrices,layer_info,
+                                 unique_layers,epochs,title = 'Name this graph'):
     # Create a figure
 
     # --- CHANGE 1: Define a grid ---
@@ -147,7 +146,7 @@ def generate_matrices_comparison(matrices,layer_info,unique_layers,epochs):
     # --- CHANGE 2: Add the colorbar to its dedicated axis ---
     fig.colorbar(im, cax=cbar_ax, label='Correlation')
 
-    fig.suptitle('SSps Correlation Matrices Organized by Layer', fontsize=16)
+    fig.suptitle(f'{title} Correlation Matrices Organized by Layer', fontsize=16)
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.show()
     return
