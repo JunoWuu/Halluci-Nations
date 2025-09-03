@@ -1,7 +1,8 @@
 import numpy as np
 import matplotlib.pylab as plt
 from matplotlib.lines import Line2D
-
+from matplotlib.gridspec import GridSpec
+import seaborn as sns
 
 
 def plot_3Dcells(x_coords,y_coords,z_coords,cell_labels):
@@ -86,5 +87,67 @@ def plot_raster(spike_times,title,lsize = 5):
     ax.set_ylim(-1, len(spike_times)) # Give some padding to the y-axis
 
     plt.tight_layout()
+    plt.show()
+    return
+
+
+
+def generate_matrices_comparison(matrices,layer_info,unique_layers,epochs):
+    # Create a figure
+
+    # --- CHANGE 1: Define a grid ---
+    # Create a grid with 1 row and (num_matrices + 1) columns.
+    # The last column will be thin and reserved for the colorbar.
+    # `width_ratios` controls the relative size of the columns.
+    num_matrices = len(matrices)
+    fig = plt.figure(figsize=(6 * num_matrices, 5.5))
+    gs = GridSpec(1, num_matrices + 1, width_ratios=[40] * num_matrices + [1])
+
+    # Create the main axes for the plots
+    axes = []
+    for i in range(num_matrices):
+        # Share the Y axis with the first plot (if it exists)
+        share_y_ax = axes[0] if i > 0 else None
+        axes.append(fig.add_subplot(gs[0, i], sharey=share_y_ax))
+
+    # Create a dedicated axis for the colorbar in the last grid column
+    cbar_ax = fig.add_subplot(gs[0, -1])
+
+    # --- Loop and plot as before ---
+    for i, correlation_matrix in enumerate(matrices):
+        ax = axes[i]
+        im = ax.imshow(correlation_matrix, cmap='RdBu_r', vmin=-1, vmax=1)
+
+        y_positions = []
+        layer_names = []
+        for layer in unique_layers:
+            start_idx = layer_info[layer]['start_idx']
+            end_idx = layer_info[layer]['end_idx']
+            if start_idx > 0:
+                ax.axhline(y=start_idx - 0.5, color='white', linewidth=2)
+                ax.axvline(x=start_idx - 0.5, color='white', linewidth=2)
+            middle_pos = (start_idx + end_idx - 1) / 2
+            y_positions.append(middle_pos)
+            layer_names.append(f'L{layer}')
+
+        ax.set_xticks(y_positions)
+        ax.set_xticklabels(layer_names, rotation=45, ha='right')
+        ax.set_xlabel('Neurons (by Layer)')
+        ax.set_title(f'Condition: {epochs[i]}')
+
+    # --- 3. Final Figure-Level Adjustments ---
+    axes[0].set_yticks(y_positions)
+    axes[0].set_yticklabels(layer_names)
+    axes[0].set_ylabel('Neurons (by Layer)')
+
+    # Hide y-tick labels on subsequent plots for clarity
+    for ax in axes[1:]:
+        plt.setp(ax.get_yticklabels(), visible=False)
+
+    # --- CHANGE 2: Add the colorbar to its dedicated axis ---
+    fig.colorbar(im, cax=cbar_ax, label='Correlation')
+
+    fig.suptitle('SSps Correlation Matrices Organized by Layer', fontsize=16)
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.show()
     return

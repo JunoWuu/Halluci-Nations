@@ -4,6 +4,15 @@ import pickle
 from sklearn.preprocessing import StandardScaler
 
 
+def add_epsilon(array, epsilon=1e-10):
+    """Add a small number to prevent zeros."""
+    return array + epsilon
+
+def load_pickle(path):
+    """Load a pickle file from the given path."""
+    with open(path, 'rb') as f:
+        return pickle.load(f)
+    
 def spike_rate_zscore(data):
     scaler = StandardScaler()
     data_T = data.T 
@@ -12,8 +21,7 @@ def spike_rate_zscore(data):
     return z_scored_data
 
 def get_spikerate_data(filename):
-    with open(filename, 'rb') as f: # 'rb' for read binary
-        loaded_data = pickle.load(f)
+    loaded_data = load_pickle(filename)
     bin_counts = loaded_data['bin_counts']
     bin_centers = bin_counts[-2]
     bin_edges  = bin_counts[-1]
@@ -84,3 +92,56 @@ def get_index_maps(df_trials):
     num_unique_combinations = len(unique_combinations)
     index_map = {name: group.index.tolist() for name, group in grouped}
     return index_map
+
+
+def subset_and_organize_matrices(regions, layers, matrix, target_region):
+    """
+    Subset by region and organize by layers, returning matrices.
+    
+    Args:
+        regions: array of region strings
+        layers: array of layer strings  
+        matrix: (neuron x time_points) matrix
+        target_region: string of region to subset
+    
+    Returns:
+        organized_matrix: (neuron x time_points) matrix with all neurons from target region
+        layer_labels: array of layer strings corresponding to each neuron row
+        layer_info: dict with layer statistics
+    """
+    # Convert to numpy arrays
+    regions = np.array(regions)
+    layers = np.array(layers)
+    
+    # Subset by region
+    region_mask = regions == target_region
+    subset_layers = layers[region_mask]
+    subset_matrix = matrix[region_mask, :]
+    
+    # Get unique layers and sort them
+    unique_layers = sorted(np.unique(subset_layers))
+    
+    # Reorganize data by layer order
+    organized_rows = []
+    organized_layer_labels = []
+    layer_info = {}
+    
+    for layer in unique_layers:
+        layer_mask = subset_layers == layer
+        layer_data = subset_matrix[layer_mask, :]
+        
+        organized_rows.append(layer_data)
+        organized_layer_labels.extend([layer] * np.sum(layer_mask))
+        
+        # Store layer info
+        layer_info[layer] = {
+            'start_idx': len(organized_layer_labels) - np.sum(layer_mask),
+            'end_idx': len(organized_layer_labels),
+            'n_neurons': np.sum(layer_mask)
+        }
+    
+    # Concatenate all layers
+    organized_matrix = np.vstack(organized_rows)
+    organized_layer_labels = np.array(organized_layer_labels)
+    
+    return organized_matrix, organized_layer_labels, layer_info
