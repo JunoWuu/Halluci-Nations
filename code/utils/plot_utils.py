@@ -5,42 +5,16 @@ from matplotlib.gridspec import GridSpec
 import seaborn as sns
 
 
-def plot_3Dcells(x_coords,y_coords,z_coords,cell_labels):
-    fig = plt.figure(figsize=(10, 8))
-    ax = fig.add_subplot(projection='3d')
 
-    # 2. Map unique string labels to distinct colors
-    unique_labels = np.unique(cell_labels)
-    colors = plt.cm.get_cmap('viridis', len(unique_labels))
-    color_map = {label: colors(i) for i, label in enumerate(unique_labels)}
-
-    # 3. Plot each group of points with its assigned color
-    for label in unique_labels:
-        # Find the indices of the points belonging to the current label
-        indices = np.where(cell_labels == label)
-
-        # Plot these points with the correct color and label for the legend
-        ax.scatter(x_coords[indices], y_coords[indices], z_coords[indices],
-                   color=color_map[label], label=label, s=50, alpha=0.8)
-
-    ax.set_zlim
-    # 4. Customize the plot
-    ax.set_xlabel('X Coordinate')
-    ax.set_ylabel('Y Coordinate')
-    ax.set_zlabel('Z Coordinate')
-    ax.set_title('3D Scatter Plot of Cell Positions by Type')
-    ax.legend(title="Cell Types")
-    ax.grid(True)
-    return
 
 def raster_bny_cell_type(spike_times, cell_types):
-    unique_labels = np.unique(cell_labels)
+    unique_labels = np.unique(cell_types)
     cmap = plt.cm.get_cmap('tab10', len(unique_labels)) # A colormap good for distinct categories
     color_map = {label: cmap(i) for i, label in enumerate(unique_labels)}
 
 
     # 2. Create a list of colors, one for each neuron, based on its label
-    neuron_colors = [color_map[label] for label in cell_labels]
+    neuron_colors = [color_map[label] for label in cell_types]
 
 
     # 3. Create the raster plot
@@ -150,3 +124,75 @@ def generate_matrices_comparison(matrices,layer_info,
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.show()
     return
+
+def plot_3d_scatter_by_label(df, x_col, y_col, z_col, color_col, 
+                             filter_col=None, filter_values=None,
+                             title=None, figsize=(12, 9), marker_size=50, cmap='viridis'):
+    """
+    Generates a 3D scatter plot from a DataFrame, with optional filtering.
+
+    - Color-codes points by a specified column ('color_col').
+    - Optionally filters the data to only include rows where 'filter_col'
+      contains values from 'filter_values'.
+    - Rows where the 'color_col' value is NaN are always ignored.
+
+    Args:
+        df (pd.DataFrame): The DataFrame containing the data.
+        x_col (str): The name of the column for the X-axis.
+        y_col (str): The name of the column for the Y-axis.
+        z_col (str): The name of the column for the Z-axis.
+        color_col (str): The name of the column for color-coding the points.
+        filter_col (str, optional): The column to apply a filter on. Defaults to None.
+        filter_values (list or str, optional): A list of values (or a single value)
+                                               to keep from the filter_col. Defaults to None.
+        title (str, optional): The title of the plot. Defaults to a generated title.
+        figsize (tuple, optional): The size of the figure. Defaults to (12, 9).
+        marker_size (int, optional): The size of the markers. Defaults to 50.
+        cmap (str, optional): The name of the colormap to use. Defaults to 'viridis'.
+    """
+    # 1. Filter the DataFrame based on the new optional parameters
+    if filter_col and filter_values is not None:
+        # Ensure filter_values is a list to handle single-item filters gracefully
+        if not isinstance(filter_values, (list, tuple, set)):
+            filter_values = [filter_values]
+        # Apply the filter
+        filtered_df = df[df[filter_col].isin(filter_values)]
+    else:
+        # If no filter is specified, use the entire DataFrame
+        filtered_df = df
+
+    # 2. Handle missing labels in the color column from the (now possibly filtered) data
+    plot_df = filtered_df.dropna(subset=[color_col]).copy()
+    
+    # Check if there is any data left to plot
+    if plot_df.empty:
+        print(f"No data to plot after applying filters and removing NaNs.")
+        return
+
+    # 3. Set up the plot
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(111, projection='3d')
+
+    # 4. Get unique labels and assign colors
+    unique_labels = sorted(plot_df[color_col].unique())
+    colors = plt.cm.get_cmap(cmap, len(unique_labels))
+    color_map = {label: colors(i) for i, label in enumerate(unique_labels)}
+
+    # 5. Plot each label group with its assigned color
+    for label_name, group_df in plot_df.groupby(color_col):
+        ax.scatter(group_df[x_col], group_df[y_col], group_df[z_col],
+                   color=color_map[label_name], label=label_name, s=marker_size)
+
+    # 6. Customize and show the plot
+    if title is None:
+        title = f'3D Scatter Plot of {color_col.title()}'
+        if filter_col:
+            title += f" (Filtered by {filter_col.title()})"
+
+    ax.set_title(title, fontsize=16)
+    ax.set_xlabel(x_col.replace('_', ' ').title())
+    ax.set_ylabel(y_col.replace('_', ' ').title())
+    ax.set_zlabel(z_col.replace('_', ' ').title())
+    
+    ax.legend(title=color_col.replace('_', ' ').title())
+    plt.show()
