@@ -8,6 +8,11 @@ def add_epsilon(array, epsilon=1e-10):
     """Add a small number to prevent zeros."""
     return array + epsilon
 
+def get_corr_mat(data):
+    v = add_epsilon(data, epsilon=1e-7)
+    correlation_matrix = np.corrcoef(v)
+    return correlation_matrix
+
 def load_pickle(path):
     """Load a pickle file from the given path."""
     with open(path, 'rb') as f:
@@ -148,4 +153,60 @@ def subset_and_organize_matrices(regions, layers, matrix, target_region):
     organized_matrix = np.vstack(organized_rows)
     organized_layer_labels = np.array(organized_layer_labels)
     
+    return organized_matrix, organized_layer_labels, layer_info
+
+def subset_and_organize_corr_matrix(regions, layers, corr_matrix, target_region):
+    """
+    Subsets a correlation matrix by region and reorganizes it by layer.
+    
+    Args:
+        regions (np.ndarray): Array of region strings for each neuron (length N).
+        layers (np.ndarray): Array of layer strings for each neuron (length N).
+        corr_matrix (np.ndarray): The full (N x N) correlation matrix.
+        target_region (str): The string of the region to subset.
+    
+    Returns:
+        organized_matrix (np.ndarray): The subsetted (M x M) correlation matrix, 
+                                     with rows/columns sorted by layer.
+        organized_layer_labels (np.ndarray): Array of layer strings for the new sorted matrix.
+        layer_info (dict): Dictionary with statistics for each layer in the new matrix.
+    """
+    # Ensure inputs are numpy arrays for efficient boolean indexing
+    regions = np.array(regions)
+    layers = np.array(layers)
+
+    # 1. Find the indices of all neurons in the target region
+    region_mask = (regions == target_region)
+    
+    # Check if any neurons were found for the target region
+    if not np.any(region_mask):
+        print(f"Warning: No neurons found for target region '{target_region}'. Returning empty results.")
+        return np.array([]), np.array([]), {}
+
+    # 2. Subset the correlation matrix on both dimensions (rows and columns)
+    subset_matrix = corr_matrix[np.ix_(region_mask, region_mask)]
+    
+    # 3. Get the layers corresponding to only the subsetted neurons
+    subset_layers = layers[region_mask]
+
+    # 4. Get the sorting order based on layer labels for the subset
+    sort_indices = np.argsort(subset_layers, kind='stable')
+    
+    # 5. Reorganize the subsetted matrix and layer labels using the sorting order
+    organized_matrix = subset_matrix[np.ix_(sort_indices, sort_indices)]
+    organized_layer_labels = subset_layers[sort_indices]
+
+    # 6. Create the layer_info dictionary from the new, organized data
+    layer_info = {}
+    unique_layers, counts = np.unique(organized_layer_labels, return_counts=True)
+    
+    current_idx = 0
+    for layer, n_neurons in zip(unique_layers, counts):
+        layer_info[layer] = {
+            'start_idx': current_idx,
+            'end_idx': current_idx + n_neurons,
+            'n_neurons': n_neurons
+        }
+        current_idx += n_neurons
+        
     return organized_matrix, organized_layer_labels, layer_info
