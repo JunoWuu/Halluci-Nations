@@ -339,7 +339,7 @@ def plot_neuron_tuning_curves(
     fig.legend(handles, legend_labels, loc='upper right', fontsize=12)
 
     # Add shared x and y labels
-    fig.supxlabel('Stimulus Value', fontsize=16)
+    fig.supxlabel('Orenitation (degrees)', fontsize=16)
     fig.supylabel('Mean Firing Rate (z-scored)', fontsize=16)
 
     # Add a main title for the entire figure
