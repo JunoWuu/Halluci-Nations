@@ -130,6 +130,50 @@ sorted_array1 = im2plot[0][sort_indices]
 sorted_array2 = im2plot[1][sort_indices]
 sorted_array3 = im2plot[2][sort_indices]
 
+
+
+
+
+
+
+
+session = '/home/tony/Halluci-Nations/scratch/ecephys_717033_2024-06-04_13-01-40_nwb_2025-08-03_21-11-22'
+data_dic = {}
+metrics_test = matrics_loader(session)
+metrics_test.load_session_matrics()
+cell_type = metrics_test.label_dic['cell_type']
+regions = metrics_test.label_dic['region']
+layers = metrics_test.label_dic['layer']
+coords = metrics_test.orien_coords
+test = metrics_test.tunning['RFMapping_0']
+test2 = metrics_test.tunning['RFMapping_1']
+test3 = metrics_test.tunning['RFMapping_2']
+test4 = metrics_test.tunning['RFMapping_3']
+tar_reg = 'VISp' 
+ace1 = test[regions ==tar_reg ]
+ace2 = test2[regions ==tar_reg ]
+ace3 = test3[regions ==tar_reg ]
+ace4 = test4[regions ==tar_reg ]
+amps, tunning = sr.calculate_population_tuning_changes(ace1,ace2,coords,circular=True,stimulus_range=180)
+amps2, tunning2 = sr.calculate_population_tuning_changes(ace1,ace3,coords,circular=True,stimulus_range=180)
+amps3, tunning3 = sr.calculate_population_tuning_changes(ace1,ace4,coords,circular=True,stimulus_range=180)
+amp1_mean = np.mean(amps)
+amp2_mean = np.mean(amps2)
+amp3_mean = np.mean(amps3)
+amp1_med = np.median(amps)
+amp2_med = np.median(amps2)
+amp3_med = np.median(amps3)
+tunning1_mean = np.mean(tunning)
+tunning2_mean = np.mean(tunning2)
+tunning3_mean = np.mean(tunning3)
+tunning1_med = np.median(tunning)
+tunning2_med = np.median(tunning2)
+tunning3_med = np.median(tunning3)
+data_dic['amp_mean'] = [amp1_mean,amp2_mean,amp3_mean]
+data_dic['amp_med'] = [amp1_med,amp2_med,amp3_med]
+data_dic['tunning_mean'] = [tunning1_mean,tunning2_mean,tunning3_mean]
+data_dic['tunning_med'] = [tunning1_med,tunning2_med,tunning3_med]
+
 '''
 stim_ep_path = '/scratch/RFMapping_0/raw'
 save_path = '/scratch/RFMapping_0/firing_rate'

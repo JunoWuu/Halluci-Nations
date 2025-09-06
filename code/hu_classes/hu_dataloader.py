@@ -27,7 +27,8 @@ class matrics_loader:
             self.corr = read_pickle_file(self.corr_path)
             self.rmap = read_pickle_file(self.rmap_path)
             self.tunning = read_pickle_file(self.tunning_path)
-            self.orien_coords = read_pickle_file(self.orien_coords_path)
+            self.tunning = {k:np.array(i) for k,i in self.tunning.items()}
+            self.orien_coords = np.array(read_pickle_file(self.orien_coords_path))
             self.rmap_coords = read_pickle_file(self.rmap_coords_path)
         except Exception as e:
             raise Exception(f"Unexpected error in loading data: {e}")

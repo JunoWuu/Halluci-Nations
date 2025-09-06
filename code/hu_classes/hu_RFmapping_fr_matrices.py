@@ -7,6 +7,7 @@ from joblib import Parallel, delayed
 from collections import defaultdict
 import pickle
 import warnings
+import utils.data_extraction as datrac
 
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
@@ -25,17 +26,19 @@ class hu_RFmapping_fr_matrices:
         self.x_coords = self.df_data.estimated_x
         self.y_coords = self.df_data.estimated_z
         self.z_coords = self.df_data.estimated_y
+
     def load_data(self):
         self.epoch_paths = [os.path.join(self.main_path,ep) for ep in self.vis_epochs]
         self.trial_info = {ep: pd.read_csv(os.path.join(ep_path,'trial_info.csv')) for
                          ep,ep_path in zip(self.vis_epochs ,self.epoch_paths)}
         self.trial_dic = {ep: sr.get_index_maps(self.trial_info[ep]) for ep in
                          self.vis_epochs}
-        self.trial_data = {ep:sr.load_pickle(os.path.join(ep_path,'firing_rates_zscored.pkl'))
+        self.trial_data = {ep:datrac.load_pickle(os.path.join(ep_path,'firing_rates.pkl'))
                            for ep,ep_path in zip(self.vis_epochs ,self.epoch_paths)}
-        self.trial_data_counts = {ep:sr.load_pickle(os.path.join(ep_path,'firing_rates.pkl'))
+        self.trial_data_counts = {ep:datrac.load_pickle(os.path.join(ep_path,'firing_rates.pkl'))
                     for ep,ep_path in zip(self.vis_epochs ,self.epoch_paths)}
         return
+
     def get_vis_epochs_keys(self):
         e_k_length = []
         for epoch in self.vis_epochs:
@@ -62,16 +65,24 @@ class hu_RFmapping_fr_matrices:
     def comput_mean_fr(self):
         self.mean_fr = {}
         for vis_epochs in self.vis_epochs:
-            mean_fr = {key: np.mean(value, axis=1) for key, 
-                       value in self.trial_data[vis_epochs].items()}
+            mean_fr = {key: np.mean(value[:, 3:-3], axis=1) for key, # reponse delyas,stop time not reliable just in case
+                    value in self.trial_data[vis_epochs].items()}
             self.mean_fr[vis_epochs] = mean_fr
-
+        self.zscored_fr = {}
+        for vis_epoch in self.vis_epochs:
+            session = self.trial_data[vis_epoch]
+            baseline = session[(7777,7777,7777)][:,3:-3]
+            means = np.mean(baseline,axis=1)
+            stds = np.std(baseline,axis=1)
+            r_sess = self.mean_fr[vis_epoch]
+            zscored = sr.calculate_per_neuron_zscore(r_sess,means,stds)
+            self.zscored_fr[vis_epoch] = zscored
         return
     
     def gen_rf_maps(self):
         self.receptive_maps = {}
         for vis_epoch in self.vis_epochs:
-            rf_map,x_coords,y_coords = rmap.create_receptive_field(self.mean_fr[vis_epoch])
+            rf_map,x_coords,y_coords = rmap.create_receptive_field(self.zscored_fr[vis_epoch])
             #np.save(savepath,)
             self.receptive_maps[vis_epoch] = rf_map
         savepath = os.path.join(self.main_path,'receptive_map.pkl') 
@@ -97,7 +108,7 @@ class hu_RFmapping_fr_matrices:
                 max_x_id = self.rf_x_coords[idx_coords[1]]
                 max_y_id = self.rf_y_coords[idx_coords[0]]
                 subselected_data = {
-                    key[0]: value[neuron_id] for key, value in self.mean_fr[vis_epoch].items()
+                    key[0]: value[neuron_id] for key, value in self.zscored_fr[vis_epoch].items()
                     if key[1] == max_x_id and key[2] == max_y_id
                 }
                 sorted_dict = dict(sorted(subselected_data.items()))

@@ -8,6 +8,12 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import Pool, cpu_count
 
 
+def load_pickle(path):
+    """Load a pickle file from the given path."""
+    with open(path, 'rb') as f:
+        return pickle.load(f)
+
+
 def bin_spikes(spike_times, end_time, bin_size):
     """
     Bins spike events into a time series.
